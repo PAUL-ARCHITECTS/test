@@ -25,22 +25,22 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - name: Prepare preinstalled Android SDK
+      - name: Check Android SDK
         shell: bash
         run: |
           set -e
-          echo "ANDROID_HOME=$ANDROID_HOME"
-          ls -l "$ANDROID_HOME/platforms" || true
-          if [ ! -d "$ANDROID_HOME/platforms/android-36" ]; then
-            sdkmanager 'platforms;android-36'
-          fi
+          if [ ! -d "$ANDROID_HOME/platforms/android-36" ]; then sdkmanager 'platforms;android-36'; fi
       - name: Gradle 8.13
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.13'
       - name: Build debug APK
         working-directory: ar_project
-        run: gradle :app:assembleDebug --stacktrace --no-daemon
+        shell: bash
+        run: |
+          # ARCore 1.56.0 declares minSdk 24; do not override the library's minSdk and risk crashes.
+          sed -i 's/minSdk 21/minSdk 24/' app/build.gradle
+          gradle :app:assembleDebug --stacktrace --no-daemon
       - name: Upload installer
         uses: actions/upload-artifact@v4
         with:
