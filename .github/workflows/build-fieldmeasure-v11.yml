@@ -43,6 +43,9 @@ jobs:
           s=p.read_text()
           s=s.replace('支持导出' + chr(10)*2 + '",13','支持导出' + chr(92) + 'n' + chr(92) + 'n",13')
           p.write_text(s)
+          q=Path('app_project/app/src/main/java/com/fieldmeasure/ar/FloorPlanView.java')
+          sq=q.read_text().replace('private static JSONArray pJson(PointF v){','private static JSONArray pJson(PointF v) throws Exception{')
+          q.write_text(sq)
           PY
       - name: Build Android debug APK
         working-directory: app_project
