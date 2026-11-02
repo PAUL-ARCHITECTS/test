@@ -1,0 +1,57 @@
+name: Build FieldMeasure v1.2 Parametric APK
+on:
+  push:
+    branches:
+      - fieldmeasure-v1-2-parametric
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore v1.1 Android source and v1.2 delta
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat fieldmeasure_build/part_*.b64 | base64 -d > /tmp/fieldmeasure-source.tar.xz
+          echo 'b25c9144d233df08e823506ccc6edfaedd527321174b108d05127467ff6aca15  /tmp/fieldmeasure-source.tar.xz' | sha256sum -c -
+          mkdir -p app_project
+          tar -xJf /tmp/fieldmeasure-source.tar.xz -C app_project
+          cp fieldmeasure_build/overrides/*.java app_project/app/src/main/java/com/fieldmeasure/ar/
+          base64 -d fieldmeasure_build/fm12_payload_double_b64.txt | base64 -d > /tmp/fm12_delta.tar.xz
+          echo 'ece422cedf67a4852fee137e6e153694d26547df95e22a1d0341ef875e655190  /tmp/fm12_delta.tar.xz' | sha256sum -c -
+          tar -xJf /tmp/fm12_delta.tar.xz
+          cp FM12_patchfiles/PlanGeometry.java FM12_patchfiles/FloorPlanView.java app_project/app/src/main/java/com/fieldmeasure/ar/
+          patch app_project/app/src/main/java/com/fieldmeasure/ar/MainActivity.java < FM12_patchfiles/main.diff
+          cp FM12_patchfiles/TestPlanGeometry.java app_project/tests/
+          sed -i 's/versionCode 11/versionCode 12/; s/versionName '\''1.1.0'\''/versionName '\''1.2.0'\''/' app_project/app/build.gradle
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Android SDK available
+        shell: bash
+        run: |
+          set -e
+          if [ ! -d "$ANDROID_HOME/platforms/android-36" ]; then sdkmanager 'platforms;android-36'; fi
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Test exact Boolean geometry
+        working-directory: app_project
+        shell: bash
+        run: |
+          set -e
+          mkdir -p /tmp/plan-tests
+          javac -encoding UTF-8 -d /tmp/plan-tests app/src/main/java/com/fieldmeasure/ar/PlanGeometry.java tests/TestPlanGeometry.java
+          java -cp /tmp/plan-tests TestPlanGeometry
+      - name: Build Android debug APK
+        working-directory: app_project
+        run: gradle :app:assembleDebug --no-daemon --stacktrace
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FieldMeasure-v1.2-Parametric-APK
+          path: app_project/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
