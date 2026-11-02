@@ -19,6 +19,7 @@ jobs:
           echo 'b25c9144d233df08e823506ccc6edfaedd527321174b108d05127467ff6aca15  /tmp/fieldmeasure-source.tar.xz' | sha256sum -c -
           mkdir -p app_project
           tar -xJf /tmp/fieldmeasure-source.tar.xz -C app_project
+          cp fieldmeasure_build/overrides/*.java app_project/app/src/main/java/com/fieldmeasure/ar/
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -34,19 +35,6 @@ jobs:
       - name: Pure Java geometry tests
         working-directory: app_project
         run: bash tests/run_geometry_tests.sh
-      - name: Fix newline escaped in initial Java source package
-        shell: bash
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          p=Path('app_project/app/src/main/java/com/fieldmeasure/ar/MainActivity.java')
-          s=p.read_text()
-          s=s.replace('支持导出' + chr(10)*2 + '",13','支持导出' + chr(92) + 'n' + chr(92) + 'n",13')
-          p.write_text(s)
-          q=Path('app_project/app/src/main/java/com/fieldmeasure/ar/FloorPlanView.java')
-          sq=q.read_text().replace('private static JSONArray pJson(PointF v){','private static JSONArray pJson(PointF v) throws Exception{')
-          q.write_text(sq)
-          PY
       - name: Build Android debug APK
         working-directory: app_project
         run: gradle :app:assembleDebug --no-daemon --stacktrace
