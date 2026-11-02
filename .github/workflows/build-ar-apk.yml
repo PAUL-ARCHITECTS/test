@@ -1,0 +1,44 @@
+name: Build AR Field Measure APK
+on:
+  push:
+    branches:
+      - ar-field-measure-build-20261103
+  workflow_dispatch:
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Extract original app source
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ar_project
+          cat ar_build/chunk_aa ar_build/chunk_ab ar_build/chunk_ac ar_build/chunk_ad | base64 -d > source.tar.xz
+          echo '65cded29b5b7ab5940e1c2e02614cefc85cbf1fbfe6be79d2050544f20f8d110  source.tar.xz' | sha256sum -c -
+          tar -xJf source.tar.xz -C ar_project
+      - name: Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Install Android 36
+        run: sdkmanager 'platforms;android-36' 'build-tools;35.0.0'
+      - name: Gradle 8.13
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Build debug APK
+        working-directory: ar_project
+        run: gradle :app:assembleDebug --stacktrace --no-daemon
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: ARFieldMeasure-v0.1-debug-APK
+          path: ar_project/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
