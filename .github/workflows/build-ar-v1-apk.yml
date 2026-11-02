@@ -1,0 +1,58 @@
+name: FieldMeasure v1 APK
+on:
+  push:
+    branches: [ar-field-measure-v1-20261103]
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout build source
+        uses: actions/checkout@v4
+      - name: Recover verified v1 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat v1_build/chunk_00 v1_build/chunk_01 v1_build/chunk_02 v1_build/chunk_03 v1_build/chunk_04 v1_build/chunk_05 | base64 -d > ar_v1_source.tar.xz
+          echo '39abbc742b081aac2ddb0344ea39488d74502dffe22eeeee446c9c4c5bdf8411  ar_v1_source.tar.xz' | sha256sum -c -
+          mkdir -p app_project
+          tar -xJf ar_v1_source.tar.xz -C app_project
+      - name: Configure JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Check installed Android SDK
+        shell: bash
+        run: |
+          set -e
+          if [ ! -d "$ANDROID_HOME/platforms/android-36" ]; then sdkmanager 'platforms;android-36'; fi
+      - name: Configure Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Verify measurement geometry and DXF
+        working-directory: app_project
+        shell: bash
+        run: |
+          set -e
+          bash tests/run_geometry_tests.sh
+          mkdir -p /tmp/dxf_test
+          javac -encoding UTF-8 -d /tmp/dxf_test app/src/main/java/com/fieldmeasure/ar/Geometry.java app/src/main/java/com/fieldmeasure/ar/SurveyRecord.java app/src/main/java/com/fieldmeasure/ar/DxfExporter.java tests/TestDxf.java
+          java -cp /tmp/dxf_test TestDxf
+      - name: Build installable v1 APK
+        working-directory: app_project
+        run: gradle :app:assembleDebug --no-daemon --stacktrace
+      - name: Verify file checksum
+        shell: bash
+        run: |
+          ls -lh app_project/app/build/outputs/apk/debug/app-debug.apk
+          sha256sum app_project/app/build/outputs/apk/debug/app-debug.apk
+      - name: Save installable APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: FieldMeasure-v1.0-Android7plus-APK
+          path: app_project/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
