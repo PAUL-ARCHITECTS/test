@@ -11,7 +11,7 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
-      - name: Restore v1.1 Android source and v1.2 delta
+      - name: Restore v1.1 baseline and apply v1.2 parametric editor
         shell: bash
         run: |
           set -euo pipefail
@@ -20,14 +20,9 @@ jobs:
           mkdir -p app_project
           tar -xJf /tmp/fieldmeasure-source.tar.xz -C app_project
           cp fieldmeasure_build/overrides/*.java app_project/app/src/main/java/com/fieldmeasure/ar/
-          base64 -d fieldmeasure_build/fm12_payload_double_b64.txt | base64 -d > /tmp/fm12_delta.tar.xz
-          echo 'ece422cedf67a4852fee137e6e153694d26547df95e22a1d0341ef875e655190  /tmp/fm12_delta.tar.xz' | sha256sum -c -
-          tar -xJf /tmp/fm12_delta.tar.xz
-          cp FM12_patchfiles/PlanGeometry.java FM12_patchfiles/FloorPlanView.java app_project/app/src/main/java/com/fieldmeasure/ar/
-          sed -i 's/private static JSONArray point(PlanGeometry.Pt p){/private static JSONArray point(PlanGeometry.Pt p) throws Exception {/' app_project/app/src/main/java/com/fieldmeasure/ar/FloorPlanView.java
-          patch app_project/app/src/main/java/com/fieldmeasure/ar/MainActivity.java < FM12_patchfiles/main.diff
-          cp FM12_patchfiles/TestPlanGeometry.java app_project/tests/
-          sed -i 's/versionCode 11/versionCode 12/; s/versionName '\''1.1.0'\''/versionName '\''1.2.0'\''/' app_project/app/build.gradle
+          base64 -d fieldmeasure_build/v12_patch.tar.xz.b64 > /tmp/fieldmeasure-v12.tar.xz
+          echo '8793f881fcba72cda818f5114829148039cc8385f805c4ad624e31ff9587e35a  /tmp/fieldmeasure-v12.tar.xz' | sha256sum -c -
+          tar -xJf /tmp/fieldmeasure-v12.tar.xz -C app_project
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -40,30 +35,18 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.13'
-      - name: Test exact Boolean geometry
+      - name: Geometry tests
         working-directory: app_project
-        shell: bash
         run: |
-          set -e
-          mkdir -p /tmp/plan-tests
-          javac -encoding UTF-8 -d /tmp/plan-tests app/src/main/java/com/fieldmeasure/ar/PlanGeometry.java tests/TestPlanGeometry.java
-          java -cp /tmp/plan-tests TestPlanGeometry
+          bash tests/run_geometry_tests.sh
+          mkdir -p /tmp/fm12_test
+          javac -encoding UTF-8 -d /tmp/fm12_test app/src/main/java/com/fieldmeasure/ar/PlanGeometry.java tests/TestPlanGeometry.java
+          java -cp /tmp/fm12_test TestPlanGeometry
       - name: Build Android debug APK
         working-directory: app_project
         run: gradle :app:assembleDebug --no-daemon --stacktrace
-      - name: Preserve regular package APK and build safe side-by-side preview
-        working-directory: app_project
-        shell: bash
-        run: |
-          set -e
-          mkdir -p deliverables
-          cp app/build/outputs/apk/debug/app-debug.apk deliverables/FieldMeasure_v1.2_Regular_Debug.apk
-          sed -i "s/applicationId 'com.fieldmeasure.ar'/applicationId 'com.fieldmeasure.ar.parametric'/" app/build.gradle
-          sed -i 's/android:label="现场测绘 FieldMeasure"/android:label="FieldMeasure 2D v1.2"/' app/src/main/AndroidManifest.xml
-          gradle :app:assembleDebug --no-daemon --stacktrace
-          cp app/build/outputs/apk/debug/app-debug.apk deliverables/FieldMeasure_v1.2_SideBySide_Debug.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: FieldMeasure-v1.2-Both-Installers
-          path: app_project/deliverables/*.apk
+          name: FieldMeasure-v1.2-parametric-APK
+          path: app_project/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
