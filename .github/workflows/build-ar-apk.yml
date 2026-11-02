@@ -25,10 +25,15 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - name: Android SDK
-        uses: android-actions/setup-android@v3
-      - name: Install Android 36
-        run: sdkmanager 'platforms;android-36' 'build-tools;35.0.0'
+      - name: Prepare preinstalled Android SDK
+        shell: bash
+        run: |
+          set -e
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          ls -l "$ANDROID_HOME/platforms" || true
+          if [ ! -d "$ANDROID_HOME/platforms/android-36" ]; then
+            sdkmanager 'platforms;android-36'
+          fi
       - name: Gradle 8.13
         uses: gradle/actions/setup-gradle@v4
         with:
