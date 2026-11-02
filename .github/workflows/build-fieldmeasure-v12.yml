@@ -23,6 +23,8 @@ jobs:
           base64 -d fieldmeasure_build/v12_patch.tar.xz.b64 > /tmp/fieldmeasure-v12.tar.xz
           echo '8793f881fcba72cda818f5114829148039cc8385f805c4ad624e31ff9587e35a  /tmp/fieldmeasure-v12.tar.xz' | sha256sum -c -
           tar -xJf /tmp/fieldmeasure-v12.tar.xz -C app_project
+          # org.json.JSONArray.put(double) declares JSONException on Android.
+          sed -i 's/private static JSONArray point(PlanGeometry.Pt p){/private static JSONArray point(PlanGeometry.Pt p) throws Exception {/' app_project/app/src/main/java/com/fieldmeasure/ar/FloorPlanView.java
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
