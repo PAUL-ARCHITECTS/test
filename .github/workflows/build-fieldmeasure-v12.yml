@@ -24,6 +24,7 @@ jobs:
           echo 'ece422cedf67a4852fee137e6e153694d26547df95e22a1d0341ef875e655190  /tmp/fm12_delta.tar.xz' | sha256sum -c -
           tar -xJf /tmp/fm12_delta.tar.xz
           cp FM12_patchfiles/PlanGeometry.java FM12_patchfiles/FloorPlanView.java app_project/app/src/main/java/com/fieldmeasure/ar/
+          sed -i 's/private static JSONArray point(PlanGeometry.Pt p){/private static JSONArray point(PlanGeometry.Pt p) throws Exception {/' app_project/app/src/main/java/com/fieldmeasure/ar/FloorPlanView.java
           patch app_project/app/src/main/java/com/fieldmeasure/ar/MainActivity.java < FM12_patchfiles/main.diff
           cp FM12_patchfiles/TestPlanGeometry.java app_project/tests/
           sed -i 's/versionCode 11/versionCode 12/; s/versionName '\''1.1.0'\''/versionName '\''1.2.0'\''/' app_project/app/build.gradle
